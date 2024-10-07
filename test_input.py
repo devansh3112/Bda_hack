@@ -1,0 +1,182 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "['C:/Users/devan/bda_hack/count_vectorizer.pkl']"
+      ]
+     },
+     "execution_count": 17,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "import joblib\n",
+    "\n",
+    "# Load the trained model and vectorizer\n",
+    "model = joblib.load(r'C:/Users/devan/bda_hack/sentiment_model.pkl')\n",
+    "cv = joblib.load(r'C:/Users/devan/bda_hack/count_vectorizer.pkl')\n",
+    "\n",
+    "# Save the model and vectorizer again to the correct paths (if needed)\n",
+    "joblib.dump(model, r'C:/Users/devan/bda_hack/sentiment_model.pkl')\n",
+    "joblib.dump(cv, r'C:/Users/devan/bda_hack/count_vectorizer.pkl')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Caption: Chasing 106, a seemingly easy target, Indian women made it difficult for themselves against Pakistan women in the ICC Women’s Twenty20 match in Dubai on Sunday. It took 18.5 overs for the Indian women to reach the target of 106. Harmanpreet Kaur was retired hurt with India still needing 2 runs to win. Sajeevan Sajana hit the winning runs for the Indian women. After this win, Indian women were at the fourth position in Group A behind New Zealand women, Australia women and Pakistan women. India’s run rate is at -1.217\n",
+      "\n",
+      "📸 AFP, ANI\n",
+      "\n",
+      "#t20worldcup #india #pakistan #cricket #womensworldcup\n",
+      "Sentiment: Positive\n"
+     ]
+    }
+   ],
+   "source": [
+    "from selenium import webdriver\n",
+    "from selenium.webdriver.common.by import By\n",
+    "from selenium.webdriver.chrome.service import Service\n",
+    "from selenium.webdriver.chrome.options import Options\n",
+    "import joblib\n",
+    "import re\n",
+    "import time\n",
+    "\n",
+    "# Load the trained model and vectorizer\n",
+    "model = joblib.load('C:/Users/devan/bda_hack/sentiment_model.pkl')\n",
+    "cv = joblib.load('C:/Users/devan/bda_hack/count_vectorizer.pkl')\n",
+    "\n",
+    "# Preprocessing functions (same as before)\n",
+    "def remove_numbers(text):\n",
+    "    return re.sub(r'\\d+', '', text)\n",
+    "\n",
+    "def remove_character(text):\n",
+    "    return re.sub(r'[^\\w\\s]', '', text)\n",
+    "\n",
+    "def remove_emoji(text):\n",
+    "    emoji_pattern = re.compile(\"[\" u\"\\U0001F600-\\U0001F64F\"  # emoticons\n",
+    "                               u\"\\U0001F300-\\U0001F5FF\"  # symbols & pictographs\n",
+    "                               u\"\\U0001F680-\\U0001F6FF\"  # transport & map symbols\n",
+    "                               u\"\\U0001F1E0-\\U0001F1FF\"  # flags (iOS)\n",
+    "                               \"]+\", flags=re.UNICODE)\n",
+    "    return emoji_pattern.sub(r'', text)\n",
+    "\n",
+    "def remove_short_form(text):\n",
+    "    return text.replace(\"n't\", \" not\").replace(\"'ll\", \" will\").replace(\"'ve\", \" have\")\n",
+    "\n",
+    "def remove_multiple_space(text):\n",
+    "    return re.sub(r'\\s+', ' ', text).strip()\n",
+    "\n",
+    "# Function to predict sentiment for a given text\n",
+    "def predict_sentiment(input_text):\n",
+    "    # Preprocess input\n",
+    "    input_text_cleaned = remove_numbers(input_text)\n",
+    "    input_text_cleaned = remove_character(input_text_cleaned)\n",
+    "    input_text_cleaned = remove_emoji(input_text_cleaned)\n",
+    "    input_text_cleaned = remove_short_form(input_text_cleaned)\n",
+    "    input_text_cleaned = remove_multiple_space(input_text_cleaned)\n",
+    "    \n",
+    "    # Vectorize input text\n",
+    "    input_text_vectorized = cv.transform([input_text_cleaned])\n",
+    "    \n",
+    "    # Predict sentiment\n",
+    "    prediction = model.predict(input_text_vectorized)\n",
+    "    \n",
+    "    return 'Positive' if prediction[0] == 1 else 'Negative'\n",
+    "\n",
+    "# Function to scrape Instagram post caption using XPath\n",
+    "def scrape_instagram_caption_by_xpath(insta_post_url):\n",
+    "    # Path to your ChromeDriver\n",
+    "    chrome_driver_path = r\"C:/Users/devan/bda_hack/chromedriver.exe\"\n",
+    "    \n",
+    "    # Set Chrome options\n",
+    "    chrome_options = Options()\n",
+    "    chrome_options.add_argument('--headless')  # Runs Chrome in headless mode (no GUI)\n",
+    "    \n",
+    "    # Initialize the WebDriver\n",
+    "    service = Service(chrome_driver_path)\n",
+    "    driver = webdriver.Chrome(service=service, options=chrome_options)\n",
+    "    \n",
+    "    try:\n",
+    "        # Open Instagram post URL\n",
+    "        driver.get(insta_post_url)\n",
+    "        \n",
+    "        # Wait for the page to load\n",
+    "        time.sleep(5)  # Adjust this time depending on your internet speed\n",
+    "        \n",
+    "        # Check if page loaded successfully\n",
+    "        if \"Page Not Found\" in driver.page_source:\n",
+    "            print(\"Error: Page not found. Please check the URL.\")\n",
+    "            return None\n",
+    "        \n",
+    "        # Scrape the caption text using XPath\n",
+    "        try:\n",
+    "            caption_element = driver.find_element(By.XPATH, \"//div[@class='_a9zs']/h1\")\n",
+    "            caption = caption_element.text\n",
+    "        except Exception as e:\n",
+    "            print(f\"Error: Could not find the caption element.\")\n",
+    "            print(f\"Details: {str(e)}\")\n",
+    "            caption = None\n",
+    "            \n",
+    "    except Exception as e:\n",
+    "        print(f\"Error: Failed to open the page. Possible issues include network error or invalid URL.\\nDetails: {str(e)}\")\n",
+    "        caption = None\n",
+    "    \n",
+    "    finally:\n",
+    "        # Close the browser\n",
+    "        driver.quit()\n",
+    "    \n",
+    "    return caption\n",
+    "\n",
+    "if __name__ == \"__main__\":\n",
+    "    insta_post_url = input(\"Enter the Instagram post URL: \")\n",
+    "    \n",
+    "    # Scrape the caption from the Instagram post using XPath\n",
+    "    caption = scrape_instagram_caption_by_xpath(insta_post_url)\n",
+    "    \n",
+    "    if caption:\n",
+    "        print(f\"Caption: {caption}\")\n",
+    "        \n",
+    "        # Predict the sentiment of the caption\n",
+    "        sentiment = predict_sentiment(caption)\n",
+    "        print(f\"Sentiment: {sentiment}\")\n",
+    "    else:\n",
+    "        print(\"Failed to fetch the caption.\")\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.9"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
